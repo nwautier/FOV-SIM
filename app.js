@@ -1,11 +1,12 @@
 /**
- * IMAG Stage & Screen Simulator
+ * IMAG Stage & Screen Simulator - Version 2.0
  */
 
 // --- Constants & Conversions ---
 const M_TO_FT = 3.28084;
 const FT_TO_M = 0.3048;
 const IN_TO_M = 0.0254;
+const M_TO_IN = 39.3701;
 const FT_TO_IN = 12;
 
 // --- Application State ---
@@ -22,7 +23,13 @@ const state = {
     distanceM: 91.44,      // 300 ft = 300 * 0.3048 = 91.44m
 
     // Shot framing: 'close-up' | 'head-shoulders' | 'waist-up' | 'head-toe'
-    shotType: 'head-shoulders'
+    shotType: 'head-shoulders',
+
+    // Presentation Text / Lower Third
+    lockTextSize: true,            // Suggest text size based on distance (1" per 10')
+    textLetterHeightInches: 30.0,  // 30 inches for 300ft default
+    fontFamily: 'Helvetica, Arial, sans-serif',
+    fontStyle: 'normal'            // 'normal' | 'bold' | 'condensed' | 'bold-condensed'
 };
 
 // --- DOM Elements ---
@@ -53,6 +60,13 @@ function initDOM() {
     DOM.distanceNum = document.getElementById('distance-num');
     DOM.distanceUnit = document.getElementById('distance-unit');
 
+    // Lower Third Inputs
+    DOM.lockTextSize = document.getElementById('lock-text-size');
+    DOM.textHeightSlider = document.getElementById('text-height-slider');
+    DOM.textHeightNum = document.getElementById('text-height-num');
+    DOM.fontFamilySelect = document.getElementById('font-family-select');
+    DOM.fontStyleSelect = document.getElementById('font-style-select');
+
     DOM.resetViewBtn = document.getElementById('reset-view-btn');
 
     // Metrics
@@ -67,6 +81,11 @@ function initDOM() {
     DOM.metricMagnification = document.getElementById('metric-magnification');
     DOM.metricFov = document.getElementById('metric-fov');
     DOM.metricPersonFov = document.getElementById('metric-person-fov');
+
+    DOM.metricTextHeight = document.getElementById('metric-text-height');
+    DOM.metricTextHeightPt = document.getElementById('metric-text-height-pt');
+    DOM.metricReadability = document.getElementById('metric-readability');
+    DOM.metricReadabilityRatio = document.getElementById('metric-readability-ratio');
 }
 
 // --- Initialization ---
@@ -175,17 +194,26 @@ function setupEventListeners() {
         const val = parseFloat(DOM.distanceSlider.value);
         DOM.distanceNum.value = val;
         state.distanceM = state.distanceUnit === 'ft' ? val * FT_TO_M : val;
-        updateUIFromState();
-        render();
+        handleDistanceChange();
     });
 
     DOM.distanceNum.addEventListener('input', () => {
         const val = parseFloat(DOM.distanceNum.value) || 10;
         DOM.distanceSlider.value = val;
         state.distanceM = state.distanceUnit === 'ft' ? val * FT_TO_M : val;
+        handleDistanceChange();
+    });
+
+    function handleDistanceChange() {
+        if (state.lockTextSize) {
+            const distFt = state.distanceM * M_TO_FT;
+            state.textLetterHeightInches = Math.max(0.5, distFt / 10.0);
+            DOM.textHeightSlider.value = state.textLetterHeightInches.toFixed(1);
+            DOM.textHeightNum.value = state.textLetterHeightInches.toFixed(1);
+        }
         updateUIFromState();
         render();
-    });
+    }
 
     // Inputs: Shot Type Radio Buttons
     document.querySelectorAll('input[name="shot-type"]').forEach(radio => {
@@ -195,6 +223,45 @@ function setupEventListeners() {
                 render();
             }
         });
+    });
+
+    // Inputs: Lower Third Controls
+    DOM.lockTextSize.addEventListener('change', (e) => {
+        state.lockTextSize = e.target.checked;
+        if (state.lockTextSize) {
+            const distFt = state.distanceM * M_TO_FT;
+            state.textLetterHeightInches = Math.max(0.5, distFt / 10.0);
+            DOM.textHeightSlider.value = state.textLetterHeightInches.toFixed(1);
+            DOM.textHeightNum.value = state.textLetterHeightInches.toFixed(1);
+        }
+        updateUIFromState();
+        render();
+    });
+
+    DOM.textHeightSlider.addEventListener('input', () => {
+        const val = parseFloat(DOM.textHeightSlider.value);
+        DOM.textHeightNum.value = val;
+        state.textLetterHeightInches = val;
+        updateUIFromState();
+        render();
+    });
+
+    DOM.textHeightNum.addEventListener('input', () => {
+        const val = parseFloat(DOM.textHeightNum.value) || 0.5;
+        DOM.textHeightSlider.value = val;
+        state.textLetterHeightInches = val;
+        updateUIFromState();
+        render();
+    });
+
+    DOM.fontFamilySelect.addEventListener('change', (e) => {
+        state.fontFamily = e.target.value;
+        render();
+    });
+
+    DOM.fontStyleSelect.addEventListener('change', (e) => {
+        state.fontStyle = e.target.value;
+        render();
     });
 
     // Reset View
@@ -207,6 +274,10 @@ function setupEventListeners() {
         state.personHeightM = 1.7526;
         state.distanceM = 91.44;
         state.shotType = 'head-shoulders';
+        state.lockTextSize = true;
+        state.textLetterHeightInches = 30.0;
+        state.fontFamily = 'Helvetica, Arial, sans-serif';
+        state.fontStyle = 'normal';
 
         updateToggleButtons(DOM.screenUnitToggle, 'm');
         updateToggleButtons(DOM.personUnitToggle, 'imp');
@@ -216,6 +287,11 @@ function setupEventListeners() {
         DOM.personMetricFields.classList.add('hidden');
 
         document.querySelector('input[name="shot-type"][value="head-shoulders"]').checked = true;
+        DOM.lockTextSize.checked = true;
+        DOM.textHeightSlider.value = 30;
+        DOM.textHeightNum.value = 30;
+        DOM.fontFamilySelect.value = 'Helvetica, Arial, sans-serif';
+        DOM.fontStyleSelect.value = 'normal';
 
         updateScreenInputValues();
         updatePersonInputValues();
@@ -312,25 +388,16 @@ function updateUIFromState() {
     DOM.metricDistance.textContent = `${Math.round(dFt)} ft`;
     DOM.metricDistanceM.textContent = `${state.distanceM.toFixed(1)} m`;
 
-    // Magnification & FOV
-    // Shot framing factor: portion of full body visible on screen height
-    // head-toe = 1.0, waist-up = 0.5, head-shoulders = 0.25, close-up = 0.12
+    // Magnification
     let shotFraction = 1.0;
     if (state.shotType === 'waist-up') shotFraction = 0.5;
     else if (state.shotType === 'head-shoulders') shotFraction = 0.25;
     else if (state.shotType === 'close-up') shotFraction = 0.12;
 
-    // Displayed person height on physical screen
-    const displayedPersonHeightOnScreenM = (state.personHeightM / shotFraction);
-    // Effective screen image height for person
-    const effectiveImageHeightM = Math.min(state.screenHeightM, displayedPersonHeightOnScreenM * (state.screenHeightM / displayedPersonHeightOnScreenM));
-
-    // Magnification ratio = screen image height of subject vs physical person height on stage
     const imagePersonScaleRatio = (state.screenHeightM / (state.personHeightM * shotFraction));
-
     DOM.metricMagnification.textContent = `${imagePersonScaleRatio.toFixed(1)}× Subject Scale`;
 
-    // Angular size (FOV in degrees = 2 * atan(height / (2 * distance)))
+    // Angular size (FOV)
     const screenFovRad = 2 * Math.atan(state.screenHeightM / (2 * state.distanceM));
     const screenFovDeg = screenFovRad * (180 / Math.PI);
 
@@ -339,6 +406,29 @@ function updateUIFromState() {
 
     DOM.metricFov.textContent = `${screenFovDeg.toFixed(2)}° (Screen)`;
     DOM.metricPersonFov.textContent = `Stage Person: ${personFovDeg.toFixed(2)}°`;
+
+    // Text Height & Readability Metrics
+    const letterInches = state.textLetterHeightInches;
+    const letterCm = letterInches * 2.54;
+    const physicalPoints = letterInches * 72; // 1 inch = 72 pt physical
+
+    DOM.metricTextHeight.textContent = `${letterInches.toFixed(1)} in (${letterCm.toFixed(1)} cm)`;
+    DOM.metricTextHeightPt.textContent = `${Math.round(physicalPoints)} pt (Physical Scale)`;
+
+    // Readability ratio based on 1 in per 10 ft rule
+    const recommendedInches = dFt / 10.0;
+    const readabilityRatio = letterInches / recommendedInches;
+
+    if (readabilityRatio >= 0.95) {
+        DOM.metricReadability.textContent = 'Optimal / Recommended';
+        DOM.metricReadabilityRatio.textContent = `${readabilityRatio.toFixed(1)}× target height (${recommendedInches.toFixed(1)}" rec)`;
+    } else if (readabilityRatio >= 0.7) {
+        DOM.metricReadability.textContent = 'Legible (Fair)';
+        DOM.metricReadabilityRatio.textContent = `${(readabilityRatio * 100).toFixed(0)}% of recommended height`;
+    } else {
+        DOM.metricReadability.textContent = 'Too Small to Read';
+        DOM.metricReadabilityRatio.textContent = `Needs ~${recommendedInches.toFixed(1)}" for ${Math.round(dFt)} ft distance`;
+    }
 }
 
 // --- Canvas Rendering Engine ---
@@ -355,24 +445,20 @@ function render() {
     drawEnvironment(ctx, width, height);
 
     // Calculate perspective scaling based on distance
-    // We calibrate distance scaling so a 300ft viewer gets realistic visual representation
-    // Baseline distance: 30ft scale = 1.0
     const baselineDistance = 25.0; // meters (~80ft)
     const perspectiveScale = Math.max(0.08, Math.min(3.0, baselineDistance / state.distanceM));
 
-    // Base pixel scale at 1:1 scale (e.g. 1 meter = 120 pixels on canvas)
+    // Base pixel scale
     const pxPerMeter = (height * 0.28) * perspectiveScale;
 
     // Center baseline for stage floor
     const stageY = height * 0.75;
     const centerX = width * 0.5;
 
-    // 1. Render Person on Stage (Side-by-side with screen)
-    // Gap between screen and person on stage
+    // Dimensions in canvas pixels
     const gapM = 1.5;
-    const personWidthM = state.personHeightM * 0.35; // Shoulder width approx
+    const personWidthM = state.personHeightM * 0.35;
 
-    // Physical dimensions in canvas pixels
     const personCanvasH = state.personHeightM * pxPerMeter;
     const screenCanvasW = state.screenWidthM * pxPerMeter;
     const screenCanvasH = state.screenHeightM * pxPerMeter;
@@ -389,7 +475,7 @@ function render() {
     const personY = stageY;
 
     // Render IMAG Screen Frame & Content
-    drawImagScreen(ctx, screenX, screenY, screenCanvasW, screenCanvasH);
+    drawImagScreen(ctx, screenX, screenY, screenCanvasW, screenCanvasH, pxPerMeter);
 
     // Render Person on Stage
     drawHumanoid(ctx, personX, personY, personCanvasH, false, 'stage');
@@ -430,7 +516,7 @@ function drawEnvironment(ctx, width, height) {
     }
 }
 
-function drawImagScreen(ctx, x, y, w, h) {
+function drawImagScreen(ctx, x, y, w, h, pxPerMeter) {
     ctx.save();
 
     // Screen bezel / border
@@ -454,35 +540,25 @@ function drawImagScreen(ctx, x, y, w, h) {
     ctx.fillStyle = bgGradient;
     ctx.fillRect(x, y, w, h);
 
-    // Render human figure on IMAG screen according to camera shot framing
-    // Shot framing definitions:
-    // Extreme Close-Up: Face (head only) -> visible height = 0.15 of person height
-    // Head & Shoulders: Top of head to chest -> visible height = 0.30 of person height
-    // Waist-Up: Top of head to waist -> visible height = 0.55 of person height
-    // Head-To-Toe: Full body -> visible height = 1.05 of person height (small padding)
-
+    // Shot framing logic
     let shotFraction = 0.30;
     if (state.shotType === 'close-up') shotFraction = 0.15;
     else if (state.shotType === 'head-shoulders') shotFraction = 0.30;
     else if (state.shotType === 'waist-up') shotFraction = 0.55;
     else if (state.shotType === 'head-toe') shotFraction = 1.05;
 
-    // Scale figure so that the requested shot height fills the screen height
-    // Top of head is offset slightly inside the top edge of screen (e.g. 5% padding)
     const topMargin = h * 0.05;
     const targetShotHeightPx = h - (topMargin * 2);
 
-    // Scaled full height of person on screen canvas
     const screenPersonFullH = targetShotHeightPx / shotFraction;
-
     const screenPersonX = x + (w / 2);
-    // Ground Y position relative to screen top so head aligns with topMargin
-    // Top of head is at screenPersonY - screenPersonFullH
-    // So screenPersonY - screenPersonFullH = y + topMargin => screenPersonY = y + topMargin + screenPersonFullH
     const screenPersonY = y + topMargin + screenPersonFullH;
 
     // Draw magnified figure inside screen
     drawHumanoid(ctx, screenPersonX, screenPersonY, screenPersonFullH, true, 'screen');
+
+    // --- Render Lower Third Overlay ---
+    drawLowerThird(ctx, x, y, w, h, pxPerMeter);
 
     // Screen raster / Scanlines overlay effect
     ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
@@ -498,6 +574,60 @@ function drawImagScreen(ctx, x, y, w, h) {
     ctx.strokeRect(x, y, w, h);
 }
 
+function drawLowerThird(ctx, x, y, w, h, pxPerMeter) {
+    // Physical letter height in meters
+    const letterHeightMeters = state.textLetterHeightInches * IN_TO_M;
+    const textPx = letterHeightMeters * pxPerMeter;
+
+    if (textPx < 1) return; // Unrendered if too small
+
+    ctx.save();
+
+    // Center in the lower vertical third of the screen
+    const lowerThirdCenterY = y + h * (5 / 6);
+    const textString = "Mr. Presenter";
+
+    // Configure Font
+    let fontStylePrefix = '';
+    if (state.fontStyle === 'bold' || state.fontStyle === 'bold-condensed') fontStylePrefix += 'bold ';
+
+    let fontStretch = '';
+    if (state.fontStyle === 'condensed' || state.fontStyle === 'bold-condensed') {
+        fontStylePrefix += 'condensed ';
+    }
+
+    ctx.font = `${fontStylePrefix}${Math.max(6, textPx)}px ${state.fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const textMetrics = ctx.measureText(textString);
+    const textWidthPx = textMetrics.width;
+
+    // Semi-transparent red banner background
+    const bannerPaddingX = Math.max(12, textPx * 0.8);
+    const bannerPaddingY = Math.max(6, textPx * 0.4);
+    const bannerW = Math.min(w * 0.95, textWidthPx + bannerPaddingX * 2);
+    const bannerH = Math.max(textPx + bannerPaddingY * 2, h * 0.12);
+
+    const bannerX = x + (w - bannerW) / 2;
+    const bannerY = lowerThirdCenterY - bannerH / 2;
+
+    // Render Red Banner
+    ctx.fillStyle = 'rgba(220, 38, 38, 0.82)'; // Semi-transparent red
+    ctx.fillRect(bannerX, bannerY, bannerW, bannerH);
+
+    // Banner border highlight
+    ctx.strokeStyle = 'rgba(254, 202, 202, 0.6)';
+    ctx.lineWidth = Math.max(1, 1.5 * window.devicePixelRatio);
+    ctx.strokeRect(bannerX, bannerY, bannerW, bannerH);
+
+    // Render Black Text
+    ctx.fillStyle = '#000000';
+    ctx.fillText(textString, x + w / 2, lowerThirdCenterY);
+
+    ctx.restore();
+}
+
 /**
  * Draws a stylized, proportional humanoid figure.
  */
@@ -505,12 +635,6 @@ function drawHumanoid(ctx, centerX, feetY, totalHeight, isImagScreen, label) {
     if (totalHeight <= 2) return;
 
     ctx.save();
-
-    // Body Proportions (based on totalHeight = 1.0)
-    // Head: top 0.0 to 0.13
-    // Neck: 0.13 to 0.16
-    // Torso / Chest / Waist: 0.16 to 0.52
-    // Hips / Legs: 0.52 to 1.0
 
     const headH = totalHeight * 0.13;
     const headW = headH * 0.78;
@@ -523,7 +647,6 @@ function drawHumanoid(ctx, centerX, feetY, totalHeight, isImagScreen, label) {
 
     const neckY = headTopY + headH;
     const shoulderY = neckY + totalHeight * 0.04;
-    const chestY = shoulderY + totalHeight * 0.12;
     const waistY = shoulderY + totalHeight * 0.24;
     const hipsY = shoulderY + totalHeight * 0.36;
 
@@ -531,29 +654,26 @@ function drawHumanoid(ctx, centerX, feetY, totalHeight, isImagScreen, label) {
     const skinColor = isImagScreen ? '#f87171' : '#cbd5e1';
     const shirtColor = isImagScreen ? '#38bdf8' : '#3b82f6';
     const pantsColor = isImagScreen ? '#1e293b' : '#1e293b';
-    const glowColor = isImagScreen ? '#38bdf8' : '#94a3b8';
 
     if (isImagScreen) {
         ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
         ctx.shadowBlur = 10 * window.devicePixelRatio;
     }
 
-    // 1. Legs / Pants
+    // Legs / Pants
     ctx.fillStyle = pantsColor;
     ctx.beginPath();
-    // Left Leg
     ctx.moveTo(centerX - hipsW * 0.35, hipsY);
     ctx.lineTo(centerX - hipsW * 0.4, feetY);
     ctx.lineTo(centerX - hipsW * 0.05, feetY);
     ctx.lineTo(centerX - hipsW * 0.05, hipsY);
-    // Right Leg
     ctx.moveTo(centerX + hipsW * 0.05, hipsY);
     ctx.lineTo(centerX + hipsW * 0.05, feetY);
     ctx.lineTo(centerX + hipsW * 0.4, feetY);
     ctx.lineTo(centerX + hipsW * 0.35, hipsY);
     ctx.fill();
 
-    // 2. Torso / Shirt
+    // Torso / Shirt
     ctx.fillStyle = shirtColor;
     ctx.beginPath();
     ctx.moveTo(centerX - shoulderW / 2, shoulderY);
@@ -577,10 +697,10 @@ function drawHumanoid(ctx, centerX, feetY, totalHeight, isImagScreen, label) {
     ctx.arc(centerX + shoulderW / 2 + armW * 0.3, shoulderY + totalHeight * 0.35, armW * 0.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // 3. Neck
+    // Neck
     ctx.fillRect(centerX - headW * 0.25, neckY, headW * 0.5, shoulderY - neckY);
 
-    // 4. Head & Face Features
+    // Head & Face
     ctx.fillStyle = skinColor;
     ctx.beginPath();
     ctx.ellipse(centerX, headCenterY, headW / 2, headH / 2, 0, 0, Math.PI * 2);
@@ -592,10 +712,9 @@ function drawHumanoid(ctx, centerX, feetY, totalHeight, isImagScreen, label) {
     ctx.arc(centerX, headCenterY - headH * 0.1, headW * 0.52, Math.PI, Math.PI * 2);
     ctx.fill();
 
-    // Simple facial features if large enough
+    // Simple facial features
     if (headH > 12 * window.devicePixelRatio) {
         ctx.fillStyle = '#0f172a';
-        // Eyes
         const eyeY = headCenterY - headH * 0.05;
         const eyeOffset = headW * 0.2;
         ctx.beginPath();
@@ -603,7 +722,6 @@ function drawHumanoid(ctx, centerX, feetY, totalHeight, isImagScreen, label) {
         ctx.arc(centerX + eyeOffset, eyeY, headW * 0.08, 0, Math.PI * 2);
         ctx.fill();
 
-        // Smile
         ctx.strokeStyle = '#0f172a';
         ctx.lineWidth = Math.max(1, 1.5 * window.devicePixelRatio);
         ctx.beginPath();
