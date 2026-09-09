@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMAG Stage Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>IMAG Stage & Screen Simulator</h1>
+            <p class="subtitle">Simulate Image Magnification & Audience FOV at Live Events</p>
+        </header>
+
+        <main class="app-main">
+            <!-- Sidebar / Control Panel -->
+            <aside class="control-panel">
+                <section class="control-group">
+                    <div class="group-header">
+                        <h2>1. Screen Dimensions</h2>
+                        <div class="unit-toggle" id="screen-unit-toggle">
+                            <button type="button" class="unit-btn active" data-unit="m">Meters (m)</button>
+                            <button type="button" class="unit-btn" data-unit="ft">Feet (ft/in)</button>
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-field">
+                            <label for="screen-width">Width</label>
+                            <div class="input-with-unit">
+                                <input type="number" id="screen-width" value="3" step="0.1" min="0.5" max="50">
+                                <span class="unit-label" id="screen-width-unit">m</span>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label for="screen-height">Height</label>
+                            <div class="input-with-unit">
+                                <input type="number" id="screen-height" value="4" step="0.1" min="0.5" max="50">
+                                <span class="unit-label" id="screen-height-unit">m</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="control-group">
+                    <div class="group-header">
+                        <h2>2. Person Height</h2>
+                        <div class="unit-toggle" id="person-unit-toggle">
+                            <button type="button" class="unit-btn active" data-unit="imp">Feet/Inches</button>
+                            <button type="button" class="unit-btn" data-unit="m">Meters (m)</button>
+                        </div>
+                    </div>
+                    <div class="input-row" id="person-imp-fields">
+                        <div class="input-field">
+                            <label for="person-ft">Feet</label>
+                            <input type="number" id="person-ft" value="5" step="1" min="1" max="8">
+                        </div>
+                        <div class="input-field">
+                            <label for="person-in">Inches</label>
+                            <input type="number" id="person-in" value="9" step="1" min="0" max="11">
+                        </div>
+                    </div>
+                    <div class="input-row hidden" id="person-metric-fields">
+                        <div class="input-field">
+                            <label for="person-m">Height (m)</label>
+                            <input type="number" id="person-m" value="1.75" step="0.01" min="0.5" max="2.5">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="control-group">
+                    <div class="group-header">
+                        <h2>3. Audience Distance</h2>
+                        <div class="unit-toggle" id="distance-unit-toggle">
+                            <button type="button" class="unit-btn active" data-unit="ft">Feet (ft)</button>
+                            <button type="button" class="unit-btn" data-unit="m">Meters (m)</button>
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-field full-width">
+                            <div class="slider-row">
+                                <input type="range" id="distance-slider" min="10" max="500" value="300" step="1">
+                                <div class="input-with-unit small">
+                                    <input type="number" id="distance-num" value="300" min="5" max="1000">
+                                    <span class="unit-label" id="distance-unit">ft</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="control-group">
+                    <h2>4. Camera Shot Framing</h2>
+                    <div class="shot-selector">
+                        <label class="shot-option">
+                            <input type="radio" name="shot-type" value="close-up">
+                            <span class="shot-card">
+                                <span class="shot-title">Extreme Close-Up</span>
+                                <span class="shot-desc">Face only (Top of head to chin)</span>
+                            </span>
+                        </label>
+                        <label class="shot-option">
+                            <input type="radio" name="shot-type" value="head-shoulders" checked>
+                            <span class="shot-card">
+                                <span class="shot-title">Head & Shoulders</span>
+                                <span class="shot-desc">Top of head to chest</span>
+                            </span>
+                        </label>
+                        <label class="shot-option">
+                            <input type="radio" name="shot-type" value="waist-up">
+                            <span class="shot-card">
+                                <span class="shot-title">Waist-Up</span>
+                                <span class="shot-desc">Top of head to waist</span>
+                            </span>
+                        </label>
+                        <label class="shot-option">
+                            <input type="radio" name="shot-type" value="head-toe">
+                            <span class="shot-card">
+                                <span class="shot-title">Head-To-Toe</span>
+                                <span class="shot-desc">Full body framing</span>
+                            </span>
+                        </label>
+                    </div>
+                </section>
+            </aside>
+
+            <!-- Main Stage Visualizer & Info Panel -->
+            <section class="stage-container">
+                <div class="canvas-wrapper">
+                    <canvas id="stage-canvas"></canvas>
+                    <div class="stage-overlay-controls">
+                        <button id="reset-view-btn" class="overlay-btn" title="Reset View">Reset View</button>
+                    </div>
+                </div>
+
+                <!-- Metrics & Info Panel -->
+                <div class="metrics-panel">
+                    <h3>Simulation Metrics</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <span class="metric-label">Screen Dimensions</span>
+                            <span class="metric-value" id="metric-screen-dims">3.00 m × 4.00 m</span>
+                            <span class="metric-sub" id="metric-screen-dims-imp">9.84 ft × 13.12 ft</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Screen Aspect Ratio</span>
+                            <span class="metric-value" id="metric-aspect-ratio">3 : 4 (0.75)</span>
+                            <span class="metric-sub" id="metric-aspect-type">Portrait Screen</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Person Height</span>
+                            <span class="metric-value" id="metric-person-height">5' 9"</span>
+                            <span class="metric-sub" id="metric-person-height-m">1.75 m</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Audience Distance</span>
+                            <span class="metric-value" id="metric-distance">300 ft</span>
+                            <span class="metric-sub" id="metric-distance-m">91.44 m</span>
+                        </div>
+                        <div class="metric-card highlight">
+                            <span class="metric-label">Apparent IMAG Magnification</span>
+                            <span class="metric-value" id="metric-magnification">2.29×</span>
+                            <span class="metric-sub">Image height vs person on stage</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Angular Height (FOV)</span>
+                            <span class="metric-value" id="metric-fov">0.76°</span>
+                            <span class="metric-sub" id="metric-person-fov">Person: 0.33°</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
